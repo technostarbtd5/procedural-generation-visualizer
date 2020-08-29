@@ -119,6 +119,10 @@
           }
         }
       }
-    }},
-  "defaultProject": "procedural-generation-visualizer"
+    }
+  },
+  "defaultProject": "procedural-generation-visualizer",
+  "cli": {
+    "analytics": "86bba290-e09a-40b3-b9cc-bbeeac457ecd"
+  }
 }

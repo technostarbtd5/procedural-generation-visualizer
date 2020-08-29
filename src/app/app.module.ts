@@ -3,10 +3,12 @@ import { NgModule } from '@angular/core';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
+import { ProceduralCanvasComponent } from './procedural-canvas/procedural-canvas.component';
 
 @NgModule({
   declarations: [
-    AppComponent
+    AppComponent,
+    ProceduralCanvasComponent
   ],
   imports: [
     BrowserModule,
