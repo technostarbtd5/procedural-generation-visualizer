@@ -1,0 +1,15 @@
+
+<!-- <style>
+  .canvas {
+    width: {{canvasWidth}};
+    height: {{canvasHeight}};
+    bac
+  }
+</style> -->
+<div class="canvasClass" [style.width.px]="canvasWidth" [style.height.px]="canvasHeight">
+  <div class="floatingElement">
+    <button (click)="toggle2D()">Toogle 2D</button>
+    <div class="dimensionIndicator">{{is2D ? "2D" : "3D"}}</div>
+  </div>
+  <div #canvas></div>
+</div>
