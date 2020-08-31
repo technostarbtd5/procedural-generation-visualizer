@@ -1,7 +1,7 @@
 import { range } from 'lodash';
 import { PerlinService } from './../perlin.service';
 
-const perlin = range(4).map(() => new PerlinService());
+const perlin: PerlinService[] = range(4).map(() => new PerlinService());
 
 
 function getChunk(x: number, y: number): number[][] {
@@ -19,8 +19,8 @@ function getChunk(x: number, y: number): number[][] {
 function getValueAtPoint(x: number, y: number): number {
   // const result = Math.floor(PerlinService.perlin2DOctave(x, y, 8, 1 / 32) * 32);
   // console.log(`Perlin at ${x}, ${y}: ${result}`);
-  return Math.floor(multiPerlinOctave(x, y));
-
+  // return Math.floor(multiPerlinOctave(x, y));
+  return Math.floor(perlin[0].offset2DOctave(x, y, 6, 1 / 32, 0.5, 0.5, 4) * 64);
   // const posToRad = 2 * Math.PI / 16;
   // return Math.floor(Math.sin(x * posToRad) * 4 + Math.cos(y * posToRad) * 4 + Math.random() * 2 + 8);
 

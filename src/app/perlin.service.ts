@@ -49,6 +49,8 @@ function grad(hash: number, x: number, y: number, z: number): number {
   }
 }
 
+let seed = Math.floor(Math.random() * (2 ** 32));
+
 @Injectable({
   providedIn: 'root'
 })
@@ -58,30 +60,14 @@ export class PerlinService {
   seedY = 0;
   seedZ = 0;
   constructor() {
-    this.seedX = Math.floor(Math.random() * (256));
-    this.seedY = Math.floor(Math.random() * (256));
-    this.seedZ = Math.floor(Math.random() * (256));
+    this.seedX = HashIntService.hashInt(seed);
+    this.seedY = HashIntService.hashInt(this.seedX);
+    this.seedZ = HashIntService.hashInt(this.seedY);
+    this.seedX &= (2 ** 16 - 1);
+    this.seedY &= (2 ** 16 - 1);
+    this.seedZ &= (2 ** 16 - 1);
+    seed++;
     console.log(`Perlin with seed ${this.seedX}, ${this.seedY}, ${this.seedZ}`);
-  }
-
-  perlin2DOctave(x: number, y: number, octaves: number, frequency: number = 1, persistence: number = 0.5): number {
-    return this.perlin3DOctave(x, y, 0, octaves, frequency, persistence);
-  }
-
-  perlin3DOctave(x: number, y: number, z: number, octaves: number, frequency: number, persistence: number): number {
-    x = x + this.seedX;
-    y = y + this.seedY;
-    z = z + this.seedZ;
-    let total = 0;
-    let amplitude = 1;
-    let maxValue = 0;
-    range(octaves).forEach(() => {
-      total += PerlinService.perlin3DImproved(x * frequency, y * frequency, z * frequency) * amplitude;
-      maxValue += amplitude;
-      amplitude *= persistence;
-      frequency *= 2;
-    });
-    return total / maxValue;
   }
 
   static perlin2DImproved(x: number, y: number): number {
@@ -133,5 +119,55 @@ export class PerlinService {
                 u);
     y2 = lerp (x1, x2, v);
     return (lerp (y1, y2, w)+1)/2;
+  }
+
+  offset2DOctave(x: number, y: number, octaves: number,
+                 frequency: number = 1, persistence: number = 0.5, offsetAmplitude: number = 1, offsetFrequency: number = 1): number {
+    return this.offset3DOctave(x, y, 0, octaves, frequency, persistence, offsetAmplitude, offsetFrequency);
+  }
+
+  offset3DOctave(x: number, y: number, z: number,
+                 octaves: number, frequency: number, persistence: number, offsetAmplitude: number = 1, offsetFrequency: number = 1): number {
+    x = x + this.seedX;
+    y = y + this.seedY;
+    z = z + this.seedZ;
+    let total = 0;
+    let amplitude = 1;
+    let maxValue = 0;
+    range(octaves).forEach(() => {
+      total += this.offset3D(x * frequency, y * frequency, z * frequency, offsetAmplitude, offsetFrequency) * amplitude;
+      maxValue += amplitude;
+      amplitude *= persistence;
+      frequency *= 2;
+    });
+    return total / maxValue;
+  }
+
+  offset3D(x: number, y: number, z: number, offsetAmplitude: number, offsetFrequency: number): number {
+    x += offsetAmplitude * PerlinService.perlin3DImproved((x + this.seedX) * offsetFrequency, 0, 0);
+    y += offsetAmplitude * PerlinService.perlin3DImproved(0, (y + this.seedY) * offsetFrequency, 0);
+    z += offsetAmplitude * PerlinService.perlin3DImproved(0, 0, (z + this.seedZ) * offsetFrequency);
+    return PerlinService.perlin3DImproved(x, y, z);
+  }
+
+
+  perlin2DOctave(x: number, y: number, octaves: number, frequency: number = 1, persistence: number = 0.5): number {
+    return this.perlin3DOctave(x, y, 0, octaves, frequency, persistence);
+  }
+
+  perlin3DOctave(x: number, y: number, z: number, octaves: number, frequency: number, persistence: number): number {
+    x = x + this.seedX;
+    y = y + this.seedY;
+    z = z + this.seedZ;
+    let total = 0;
+    let amplitude = 1;
+    let maxValue = 0;
+    range(octaves).forEach(() => {
+      total += PerlinService.perlin3DImproved(x * frequency, y * frequency, z * frequency) * amplitude;
+      maxValue += amplitude;
+      amplitude *= persistence;
+      frequency *= 2;
+    });
+    return total / maxValue;
   }
 }
