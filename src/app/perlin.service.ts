@@ -122,12 +122,12 @@ export class PerlinService {
   }
 
   offset2DOctave(x: number, y: number, octaves: number,
-                 frequency: number = 1, persistence: number = 0.5, offsetAmplitude: number = 1, offsetFrequency: number = 1): number {
+                 frequency: number = 1, persistence: number = 0.5, offsetAmplitude: number = 0.1, offsetFrequency: number = 1): number {
     return this.offset3DOctave(x, y, 0, octaves, frequency, persistence, offsetAmplitude, offsetFrequency);
   }
 
   offset3DOctave(x: number, y: number, z: number,
-                 octaves: number, frequency: number, persistence: number, offsetAmplitude: number = 1, offsetFrequency: number = 1): number {
+                 octaves: number, frequency: number, persistence: number, offsetAmplitude: number = 0.1, offsetFrequency: number = 1): number {
     x = x + this.seedX;
     y = y + this.seedY;
     z = z + this.seedZ;
