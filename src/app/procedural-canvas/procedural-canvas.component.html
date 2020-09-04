@@ -8,8 +8,8 @@
 </style> -->
 <div class="canvasClass" [style.width.px]="canvasWidth" [style.height.px]="canvasHeight">
   <div class="floatingElement">
-    <button (click)="toggle2D()">Toogle 2D</button>
-    <div class="dimensionIndicator">{{is2D ? "2D" : "3D"}}</div>
+    <!-- <button (click)="toggle2D()">Toogle 2D</button> -->
+    <button class="dimensionIndicator" (click)="toggle2D()">{{is2D ? "2D" : "3D"}}</button>
   </div>
-  <div #canvas></div>
+  <div #canvas id="canvas" (mousedown)="onMouseDown($event)" (mouseup)="onMouseUp($event)" (mousemove)="onMouseMove($event)" (wheel)="onMouseWheel($event)"></div>
 </div>

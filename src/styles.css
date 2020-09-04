@@ -34,11 +34,17 @@
   background-color: rgba(220, 220, 220, 0.7);
   padding: 4px;
   border-radius: 4px;
-  width: 32px;
-  height: 32px;
+  margin: 0;
+  width: 40px;
+  height: 40px;
   display: flex;
   justify-content: center;
   align-items: center;
+  cursor: pointer;
+}
+
+.dimensionIndicator:hover {
+  background-color: rgba(190, 190, 190, 0.9);
 }
 
 .floatingElement {
