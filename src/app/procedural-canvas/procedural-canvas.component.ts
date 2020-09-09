@@ -31,10 +31,17 @@ const cameraRadius = 500;
 // const maxWorkers = 256; // Should be near global CPU thread maximum
 const maxWorkers = 16;
 const scalar = 2;
-const chunksize = 64;
+const chunksize = 16;
 const mouseZoomAmount = Math.pow(2, 1 / 225);
 const minZoom = 1;
 const maxZoom = 8;
+const chunkRenderRadius = Math.floor(256 / chunksize);
+const material = new THREE.MeshLambertMaterial({side: THREE.DoubleSide, vertexColors: true});
+const mouseDragScalar = 400;
+
+const KEY = {
+  SHIFT: 16,
+};
 
 @Component({
   selector: 'app-procedural-canvas',
@@ -73,8 +80,11 @@ export class ProceduralCanvasComponent implements OnInit {
   renderQueue = [];
   mouse = new THREE.Vector2(0, 1);
   mouseDown = false;
+  shiftDown = false;
+  shiftDownTheta = this.theta;
   mouseDownLocation = new THREE.Vector3();
   mouseDownSceneLocation = new THREE.Vector3();
+  mouseDownScreenLocation = new THREE.Vector2();
   globalRaycaster = new THREE.Raycaster();
   globalCamera = new THREE.OrthographicCamera(
     800 / -2,
@@ -88,12 +98,13 @@ export class ProceduralCanvasComponent implements OnInit {
   globalRender = new THREE.WebGLRenderer();
   // globalControls = new OrbitControls(this.globalCamera, this.globalRender);
   zoom = 1;
+  chunks = {};
 
   constructor() {
     
   }
 
-  onMouseMove(event): void {
+  onMouseMove(event: MouseEvent): void {
     // console.log(event);
     // console.log(`${event.offsetX}, ${event.offsetY}`);
     const {offsetX, offsetY} = event;
@@ -101,10 +112,7 @@ export class ProceduralCanvasComponent implements OnInit {
     this.mouse.y = - 2 * offsetY / this.canvasHeight + 1;
   }
 
-  onMouseDown(event): void {
-    console.log("Mouse Down");
-    // console.log(event);
-    this.mouseDown = true;
+  setMouseDragOrigin(): void {
     this.globalRaycaster.setFromCamera( this.mouse, this.globalCamera );
     const intersects = new THREE.Vector3();
     this.globalRaycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), intersects);
@@ -112,14 +120,46 @@ export class ProceduralCanvasComponent implements OnInit {
     this.mouseDownSceneLocation = cloneDeep(this.globalScene.position);
   }
 
+  setMouseRotateOrigin(): void {
+    const {x, y} = this.mouse;
+    this.mouseDownScreenLocation = new THREE.Vector2(x, y);
+    this.shiftDownTheta = this.theta;
+  }
+
+  onMouseDown(event: MouseEvent): void {
+    console.log("Mouse Down");
+    // console.log(event);
+    this.mouseDown = true;
+    this.setMouseDragOrigin();
+    if(this.shiftDown) { this.setMouseRotateOrigin(); }
+  }
+
   @HostListener('mouseup', ['$event'])
-  onMouseUp(event): void {
+  onMouseUp(event: MouseEvent): void {
     console.log("Mouse Up");
     // console.log(event);
     this.mouseDown = false;
   }
 
-  onMouseWheel(event): void {
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    if(event.keyCode === KEY.SHIFT && !this.shiftDown) {
+      console.log("Shift Down");
+      this.shiftDown = true;
+      if(this.mouseDown) { this.setMouseRotateOrigin(); }
+    }
+  }
+
+  @HostListener('window:keyup', ['$event'])
+  onKeyUp(event: KeyboardEvent): void {
+    if(event.keyCode === KEY.SHIFT && this.shiftDown) {
+      console.log("Shift Up");
+      this.shiftDown = false;
+      if(this.mouseDown) { this.setMouseDragOrigin(); }
+    }
+  }
+
+  onMouseWheel(event: WheelEvent): void {
     const {deltaY} = event;
     const oldZoom = this.zoom;
 
@@ -141,10 +181,6 @@ export class ProceduralCanvasComponent implements OnInit {
     this.zoom = Math.max(Math.min(newZoom, maxZoom), minZoom);
     this.globalCamera.zoom = this.zoom;
     this.globalCamera.updateProjectionMatrix();
-    // this.globalCamera.top = this.canvasHeight / this.zoom / 2;
-    // this.globalCamera.bottom = this.canvasHeight / this.zoom / -2;
-    // this.globalCamera.right = this.canvasWidth / this.zoom / 2;
-    // this.globalCamera.left = this.canvasWidth / this.zoom / -2;
     return this.zoom;
   }
 
@@ -154,13 +190,22 @@ export class ProceduralCanvasComponent implements OnInit {
     // let theta = 45;
     const height = this.canvasHeight;
     const scene = this.globalScene;
+    // this.globalCamera = new THREE.OrthographicCamera(
+    //   width / -2,
+    //   width / 2,
+    //   height / 2,
+    //   height / -2,
+    //   1,
+    //   10000
+    // );
+
     this.globalCamera = new THREE.OrthographicCamera(
-      width / -2,
-      width / 2,
-      height / 2,
-      height / -2,
+      -400,
+      400,
+      800 * height / width / 2,
+      800 * height / width / -2,
       1,
-      1000
+      10000
     );
     const camera = this.globalCamera;
 
@@ -199,13 +244,21 @@ export class ProceduralCanvasComponent implements OnInit {
         });
       }
 
+      // Drag mouse
       if(this.mouseDown) {
         // console.log(scene.position);
-        const {x, z} = intersects;
-        const xOffset = x - this.mouseDownLocation.x;
-        const zOffset = z - this.mouseDownLocation.z;
-        scene.position.x = xOffset + this.mouseDownSceneLocation.x;
-        scene.position.z = zOffset + this.mouseDownSceneLocation.z;
+        if(this.shiftDown && !this.is2D) {
+          const {x} = this.mouse;
+          const xDiff = (this.mouseDownScreenLocation.x - x) * mouseDragScalar;
+          this.theta = this.shiftDownTheta + xDiff;
+          // console.log(`Theta set to ${this.theta}`);
+        } else {
+          const {x, z} = intersects;
+          const xOffset = x - this.mouseDownLocation.x;
+          const zOffset = z - this.mouseDownLocation.z;
+          scene.position.x = xOffset + this.mouseDownSceneLocation.x;
+          scene.position.z = zOffset + this.mouseDownSceneLocation.z;
+        }
       }
 
       if(this.renderQueue.length > 0) {
@@ -230,7 +283,7 @@ export class ProceduralCanvasComponent implements OnInit {
           camera.lookAt(new THREE.Vector3(0, 0, 0));
         } else {
           // this.theta += 0.1;
-          this.theta = 45;
+          // this.theta = 45;
           // console.log(this.theta);
           camera.position.x = cameraRadius * Math.sin( THREE.MathUtils.degToRad( this.theta ) );
           camera.position.z = cameraRadius * Math.cos( THREE.MathUtils.degToRad( this.theta ) );
@@ -238,6 +291,9 @@ export class ProceduralCanvasComponent implements OnInit {
           camera.lookAt(new THREE.Vector3(0, 0, 0));
         }
       }
+
+      this.renderChunks(scene);
+
       renderer.render(scene, camera);
       stats.update();
     };
@@ -252,47 +308,55 @@ export class ProceduralCanvasComponent implements OnInit {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    const material = new THREE.MeshLambertMaterial({side: THREE.DoubleSide, vertexColors: true});
+    
     const mesh = new THREE.Mesh(geometry, material);
     
     mesh.position.x = x * chunksize * scalar;
     mesh.position.z = y * chunksize * scalar;
     // const {mesh} = data;
     scene.add( mesh );
+    this.chunks[this.stringifyCoords(new THREE.Vector2(x, y))] = mesh;
   }
 
   renderChunks(scene: THREE.Object3D): void {
-    
-    // const geometry = new THREE.BoxBufferGeometry(scalar, scalar, scalar);
-    range(-4, 4).forEach(x => {
-      range(-4, 4).forEach(y => {
+
+    // 
+    // range(-4, 4).forEach(x => {
+    //   range(-4, 4).forEach(y => {
+    //     this.renderChunkWithWorker(scene, x, y);
+    //     // this.renderChunk(scene, x, y);
+    //   });
+    // });
+    const chunk = this.getSceneChunk(scene);
+    // console.log(`Scanning chunk from ${this.stringifyCoords(chunk)}`);
+    range(chunk.x - chunkRenderRadius, chunk.x + chunkRenderRadius + 1).forEach(x => {
+      range(chunk.y - chunkRenderRadius, chunk.y + chunkRenderRadius + 1).forEach(y => {
         this.renderChunkWithWorker(scene, x, y);
-        // this.renderChunk(scene, x, y)s;
       });
     });
+
+
   }
 
+  getSceneChunk(scene: THREE.Object3D): THREE.Vector2 {
+    const chunkify = (position: number): number => Math.floor(-1 * position / chunksize / scalar) ;
+    return new THREE.Vector2(chunkify(scene.position.x), chunkify(scene.position.z));
+  }
+
+  stringifyCoords = (coords: THREE.Vector2): string => `${coords.x}, ${coords.y}`;
+
   renderChunkWithWorker(scene: THREE.Object3D, x: number, y: number): void {
+    const coordsString = this.stringifyCoords(new THREE.Vector2(x, y))
+    if(this.chunks[coordsString]) { return; }
+    this.chunks[coordsString] = true;
+    // console.log(`Building chunk ${coordsString}`);
     if (typeof Worker !== 'undefined') {
       // Create a new
-      console.log("Creating Worker");
+      // console.log("Creating Worker");
       const worker = new Worker('../chunk.worker.ts', { type: 'module' });
       worker.onmessage = ({ data }) => {
-        // console.log(`page got message: ${JSON.stringify(data)}`);
         this.activeWorkers--;
         this.renderQueue.push({x, y, data});
-        // const geometry = new THREE.BufferGeometry();
-        // const {vertices, normals, colors} = data;
-        // geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        // geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-        // geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        // const material = new THREE.MeshLambertMaterial({side: THREE.DoubleSide, vertexColors: true});
-        // const mesh = new THREE.Mesh(geometry, material);
-        
-        // mesh.position.x = x * chunksize * scalar;
-        // mesh.position.z = y * chunksize * scalar;
-        // // const {mesh} = data;
-        // scene.add( mesh );
       };
       const seed = this.seed;
       const data = {x, y, seed, scalar, chunksize};
@@ -310,115 +374,9 @@ export class ProceduralCanvasComponent implements OnInit {
   }
 
 
-
-  // async renderChunk(scene: THREE.Object3D, x: number, y: number): Promise<void> {
-  //   const scalar = 8;
-  
-  //   const chunkPromise = new Promise((resolve, reject) => {
-  //     const chunk = getChunk(x, y, 16);
-
-  //     const geometry = new THREE.BufferGeometry();
-
-  //     const vertices = [];
-  //     const normals = [];
-  //     const colors = [];
-      
-  //     // const h2c = this.heightToColor;
-  //     const pushSurfaceSquare = (chunkX: number, chunkY: number, height: number) => {
-  //       const x1 = chunkX * scalar - scalar * 8;
-  //       const x2 = x1 + scalar;
-  //       const y1 = chunkY * scalar - scalar * 8;
-  //       const y2 = y1 + scalar;
-  //       const h = height * scalar + scalar;
-
-  //       vertices.push(x1, h, y1);
-  //       vertices.push(x2, h, y2);
-  //       vertices.push(x2, h, y1);
-  //       vertices.push(x1, h, y1);
-  //       vertices.push(x1, h, y2);
-  //       vertices.push(x2, h, y2);
-
-  //       const colorRGB = this.heightToColor(height);
-  //       const red = Math.floor(colorRGB / (256 ** 2)) / 255;
-  //       const green = Math.floor((colorRGB % (256 ** 2)) / 256) / 255;
-  //       const blue = (colorRGB % 256) / 255;
-
-  //       range(6).forEach(() => {
-  //         colors.push(red, green, blue);
-  //         normals.push(0, 1, 0);
-  //       });
-  //     };
-
-  //     chunk.forEach((row, chunkX) => {
-  //       row.forEach((height, chunkY) => {
-  //         // First implementation
-  //         // const geometry = new THREE.BoxGeometry(scalar, scalar, scalar);
-  //         // const material = new THREE.MeshPhongMaterial({ color: this.heightToColor(height) });
-  //         // const cube = new THREE.Mesh(geometry, material);
-  //         // cube.position.y = height * scalar + scalar / 2;
-  //         // cube.position.x = (x * 16 + chunkX) * scalar;
-  //         // cube.position.z = (y * 16 + chunkY) * scalar;
-
-  //         // const geometry2 = new THREE.BoxGeometry(scalar, height * scalar, scalar);
-  //         // const material2 = new THREE.MeshPhongMaterial({ color: 0x221100 });
-  //         // const stack = new THREE.Mesh(geometry2, material2);
-  //         // stack.position.y = height * scalar / 2;
-  //         // stack.position.x = (x * 16 + chunkX) * scalar;
-  //         // stack.position.z = (y * 16 + chunkY) * scalar;
-
-  //         // Buffered
-  //         // const material = new THREE.MeshLambertMaterial({ color: this.heightToColor(height) })
-  //         // const cube = new THREE.Mesh(geometry, material);
-  //         // cube.position.y = height * scalar + scalar / 2;
-  //         // cube.position.x = (x * 16 + chunkX) * scalar;
-  //         // cube.position.z = (y * 16 + chunkY) * scalar;
-
-  //         // const material2 = new THREE.MeshLambertMaterial({ color: 0x221100 });
-  //         // const stack = new THREE.Mesh(geometry, material2);
-  //         // stack.position.y = height * scalar / 2;
-  //         // stack.position.x = (x * 16 + chunkX) * scalar;
-  //         // stack.position.z = (y * 16 + chunkY) * scalar;
-  //         // stack.scale.y = height;
-
-  //         // scene.add(cube);
-  //         // scene.add(stack);
-
-  //         // One mesh
-  //         pushSurfaceSquare(chunkX, chunkY, height);
-  //       });
-  //     });
-
-  //     // console.log(vertices);
-  //     // console.log(normals);
-  //     // console.log(colors);
-  //     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  //     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  //     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  //     const material = new THREE.MeshLambertMaterial({side: THREE.DoubleSide, vertexColors: true});
-  //     const mesh = new THREE.Mesh(geometry, material);
-      
-  //     mesh.position.x = x * 16 * scalar;
-  //     mesh.position.z = y * 16 * scalar;
-
-  //     scene.add( mesh );
-  //     resolve();
-  //   });
-  //   return chunkPromise.then(() => {
-  //     console.log(`Chunk ${x}, ${y} loaded;`);
-  //   });
-  // }
-
-  // heightToColor(height: number): number {
-  //   const minValue = 0;
-  //   const maxValue = 128;
-  //   const color = Math.floor(255 * (height - minValue) / (maxValue - minValue));
-  //   // return color * 256 * 256 + color * 256 + color;
-  //   return 256 * color;
-  // }
-
   ngOnInit(): void {
-    this.canvasWidth = Math.min(window.innerWidth, 800);
-    this.canvasHeight = Math.min(window.innerHeight, 600);
+    this.canvasWidth = window.innerWidth/*Math.min(window.innerWidth, 800)*/;
+    this.canvasHeight = window.innerHeight/*Math.min(window.innerHeight, 600)*/;
   }
   
   ngAfterViewInit(): void {

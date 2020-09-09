@@ -1,5 +1,9 @@
 /* You can add global styles to this file, and also import other style files */
 
+body {
+  overflow: hidden; /* Hide scrollbars */
+}
+
 /* Button */
 .button, button {
   display: inline-flex;
@@ -26,7 +30,9 @@
 
 .canvasClass {
   padding: 0px;
-  position: relative;
+  position: absolute;
+  top: 0px;
+  left: 0px;
 }
 
 .dimensionIndicator {
